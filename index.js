@@ -1,8 +1,19 @@
 import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
+import http from 'http';
+import { Server } from 'socket.io';
+import dotenv from 'dotenv';
+import User from './models/User.js'
+
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: 'http://localhost:3000', methods: ['GET', 'POST'] }
+})
+
+dotenv.config();
 app.use(cors());
 app.use(express.json());
 
@@ -13,6 +24,18 @@ mongoose.connect("mongodb://localhost:27017/talkNestDB", {
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id);
+
+  socket.on('send_message', (msg) => {
+    io.emit('receive_message', msg);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
+
 app.get('/', (req, res) => {
   res.send('Connect to TalkNest Service!');
 });
@@ -21,7 +44,7 @@ app.get('/', (req, res) => {
 app.post('/api/signup', async (req, res) => {
   try {
     const newUser = new User(req.body);
-    await newUser.save;
+    await newUser.save();
     res.status(201).json(newUser);
   }
   catch (err) {
